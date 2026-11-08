@@ -1,10 +1,10 @@
 <div align="center">
 
-# Workflow Replay
+# Reflo
 
-**Stop paying your AI agent to redo the same tool calls.**
+**Workflow replay for AI agents**
 
-Workflow Replay watches the tool calls your agent makes, learns the read-only workflows it keeps repeating, and replays them the next time a similar request comes in. The model gets a short, verified result instead of re-planning, re-calling and re-reading raw API output.
+Reflo learns recurring read-only workflows from your agent’s tool calls. When a similar request comes in, it runs the saved steps with fresh inputs and gives the model a compact result to answer from.
 
 ![Node](https://img.shields.io/badge/node-%E2%89%A524-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-hooks%20%2B%20MCP-D97757?style=for-the-badge)
@@ -19,7 +19,7 @@ Workflow Replay watches the tool calls your agent makes, learns the read-only wo
 </div>
 
 > [!NOTE]
-> Workflow Replay pays off when the same **kinds of read-only lookups** come up again and again: order status, account summaries, ticket counts, ERP or CRM queries, support bots. It does little for open-ended work such as writing code. Run the [built-in analyzer](#1-measure-first) on your own history before you deploy it.
+> Reflo pays off on **recurring read-only lookups** such as order status checks, account summaries, and ticket counts. It does little for open-ended work such as writing code. Run the [built-in analyzer](#1-measure-first) on your own history before you deploy it.
 
 ## Contents
 
@@ -40,7 +40,7 @@ Workflow Replay watches the tool calls your agent makes, learns the read-only wo
 
 Agents spend most of their tokens on tool calls: deciding what to call, calling it, then reading the full raw response back in. Each extra turn re-sends the whole conversation. When the same request comes back with different values ("status of order #W123", then "#W456"), the agent does all of that again from scratch.
 
-Workflow Replay sits between the agent and its tools and:
+Reflo sits between the agent and its tools.
 
 - **Learns** workflows automatically from the agent's own successful runs: which calls, in what order, with which values coming from the request and which from earlier results. It handles loops, pagination, filtered counts and totals.
 - **Verifies** each learned workflow by replaying it against past runs, then runs it in **shadow mode** next to the real agent before it goes live.
@@ -115,7 +115,7 @@ sequenceDiagram
 
 Measured on real records from the public [τ²-bench](https://github.com/sierra-research/tau2-bench) retail and airline databases (500 customers, 1,000 orders, 2,000 reservations), with **DeepSeek V4.1 Flash**. There are 69 test requests × 2 repeats × 3 arms, run in random order. Learning happened first, on different customers.
 
-| | Plain agent | **Workflow Replay** (model writes every answer) |
+| | Plain agent | **Reflo** (model writes every answer) |
 | --- | --- | --- |
 | Accuracy | 99.3% | **100%** |
 | Tokens per request | 4,026 | **2,489 (−38%)** |
@@ -128,14 +128,14 @@ Measured on real records from the public [τ²-bench](https://github.com/sierra-
 
 ```mermaid
 xychart-beta
-  title "Tokens per request (bars: plain agent, line: Workflow Replay)"
+  title "Tokens per request (bars: plain agent, line: Reflo)"
   x-axis ["Exact repeat", "Reworded repeat", "Unusual result", "Similar but different", "New task"]
   y-axis "Tokens" 0 --> 5500
   bar [3761, 3833, 5298, 3613, 2476]
   line [191, 1191, 651, 4363, 3339]
 ```
 
-| Request type | Plain agent | Workflow Replay | Change |
+| Request type | Plain agent | Reflo | Change |
 | --- | --- | --- | --- |
 | Repeat, same wording | 3,761 | 191 | **−95%** |
 | Repeat, new wording | 3,833 | 1,191 | **−69%** |
@@ -207,7 +207,7 @@ That removes everything the installer added; your profiles and playbooks are kep
 
 ### 4. Use your agent as usual
 
-There's nothing else to do. Workflow Replay records gateway calls, learns every few turns, shadows new workflows, and promotes read-only ones after they agree with the agent 5 times. Check on it with:
+Reflo records gateway calls, learns every few turns, shadows new workflows, and promotes read-only ones after they agree with the agent 5 times. Use the status command to inspect the playbook.
 
 ```bash
 node src/v2/hosts/cli.mjs my-service status
