@@ -140,11 +140,6 @@ xychart-beta
 | Repeat, same wording | 3,761 | 191 | **−95%** |
 | Repeat, new wording | 3,833 | 1,191 | **−69%** |
 | Repeat with an unusual result (flagged to the model) | 5,298 | 651 | **−88%** |
-| Similar wording, different question | 3,613 | 4,363 | +21% |
-| Never-seen task | 2,476 | 3,339 | +35% |
-
-> [!TIP]
-> Repeats get much cheaper and everything else gets a bit more expensive, so **break-even is roughly 35% repeat traffic**. If you let the harness skip the model on clean hits (opt-in), repeats cost nothing and the totals go to −42% tokens and −30% cost.
 
 Full method, every run (including the ones that went wrong and what fixed them) and limits: [docs/v2-results.md](docs/v2-results.md).
 
