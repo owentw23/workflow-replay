@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "inputs": { "customer": "string" },
+  "steps": [
+    { "id": "account", "op": "account.v1", "args": { "customer": { "input": "customer" } } },
+    { "id": "billing", "op": "billing.v1", "args": { "id": { "step": "account", "field": "id" } } },
+    { "id": "support", "op": "support.v1", "args": { "id": { "step": "account", "field": "id" } } }
+  ],
+  "output": {
+    "tier": { "step": "account", "field": "tier" },
+    "overdue": { "step": "billing", "field": "overdue" },
+    "open": { "step": "support", "field": "open" }
+  }
+}

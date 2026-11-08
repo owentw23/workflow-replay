@@ -1,0 +1,7 @@
+node_modules/
+.replay/
+.env
+.env.*
+!.env.example
+cred.env
+eval/v2/data/

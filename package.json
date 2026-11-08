@@ -1,0 +1,66 @@
+{
+  "name": "workflow-replay",
+  "version": "2.2.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "workflow-replay-install": "./src/v2/hosts/install.mjs",
+    "workflow-replay-mcp": "./src/v2/hosts/mcp-gateway.mjs",
+    "workflow-replay": "./src/v2/hosts/cli.mjs",
+    "workflow-replay-wrap": "./src/v2/hosts/wrap.mjs",
+    "workflow-replay-analyze": "./src/v2/hosts/analyze.mjs"
+  },
+  "files": [
+    "src",
+    "eval/v2",
+    "examples",
+    "skills",
+    "docs",
+    "README.md",
+    "SECURITY.md",
+    "install.mjs",
+    "mcp.mjs",
+    "personal.mjs"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "demo:seed": "node --disable-warning=ExperimentalWarning examples/setup-demo.mjs",
+    "install:host": "node --disable-warning=ExperimentalWarning install.mjs",
+    "mcp": "node --disable-warning=ExperimentalWarning mcp.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test",
+    "bench": "node --disable-warning=ExperimentalWarning benchmark.mjs",
+    "bench:live": "node --disable-warning=ExperimentalWarning --env-file-if-exists=cred.env eval/run.mjs",
+    "bench:scale": "node --disable-warning=ExperimentalWarning --env-file-if-exists=cred.env eval/run.mjs --host-routed",
+    "bench:audit": "node --disable-warning=ExperimentalWarning --env-file-if-exists=cred.env eval/run.mjs --collector-ablation",
+    "bench:wording": "node --disable-warning=ExperimentalWarning --env-file-if-exists=cred.env eval/run.mjs --paraphrases",
+    "bench:routing": "node --disable-warning=ExperimentalWarning eval/routing-benchmark.mjs",
+    "bench:confirm": "node --disable-warning=ExperimentalWarning --env-file-if-exists=cred.env eval/confirmation.mjs",
+    "replay": "node --disable-warning=ExperimentalWarning cli.mjs",
+    "bench:v2:fetch": "node eval/v2/fetch-data.mjs",
+    "bench:v2": "node --disable-warning=ExperimentalWarning --env-file-if-exists=cred.env eval/v2/run.mjs",
+    "setup": "node --disable-warning=ExperimentalWarning src/v2/hosts/install.mjs",
+    "analyze": "node --disable-warning=ExperimentalWarning src/v2/hosts/analyze.mjs",
+    "wrap": "node --disable-warning=ExperimentalWarning src/v2/hosts/wrap.mjs"
+  },
+  "devDependencies": {
+    "js-tiktoken": "1.0.21"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "jose": "6.2.15",
+    "zod": "4.6.7"
+  },
+  "description": "Learns the tool-call workflows your AI agent repeats and replays them, so the model stops paying tokens to re-plan and re-read the same API calls. Works with Claude Code, Codex, MCP clients and your own agents.",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "mcp",
+    "agents",
+    "token-savings",
+    "workflow",
+    "llm",
+    "tool-use"
+  ]
+}
