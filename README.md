@@ -51,24 +51,27 @@ Workflow Replay sits between the agent and its tools and:
 ## How it works
 
 ```mermaid
-flowchart LR
-  subgraph Hosts
-    H1["Claude Code / Codex<br/>(hooks)"]
-    H2["MCP clients"]
-    H3["Your own agent<br/>(JS API)"]
-  end
-  H1 --> R["Router<br/>match · fill inputs · gate"]
-  H3 --> R
-  H2 --> G
-  R -->|hit| X["Executor<br/>runs saved plan"]
-  R -->|miss| A["Ordinary agent loop"]
-  A --> G["Gateway<br/>trims results · records calls"]
+flowchart TB
+  H1["Claude Code or Codex"] --> R["Router"]
+  H3["Your own agent"] --> R
+  H2["MCP clients"] --> G
+  R -- "match" --> X["Run saved plan"]
+  R -- "no match" --> A["Normal agent turn"]
+  A --> G["Gateway"]
   X --> G
-  G --> U["Your tools<br/>APIs · MCP servers · CLIs"]
-  G --> L["Learning loop<br/>mine → verify → merge → shadow"]
-  L --> C[("Playbook<br/>SQLite")]
-  R --> C
+  G --> U["Your tools and APIs"]
+  G --> L["Learning loop"]
+  L --> C[("Playbook")]
+  C --> R
 ```
+
+| Part | What it does |
+| --- | --- |
+| Router | Finds a matching workflow, fills in its inputs, runs the safety gate |
+| Run saved plan | Replays the learned calls with the new inputs |
+| Gateway | Trims tool results to the needed fields and records every call |
+| Learning loop | Mines repeated runs, verifies them, merges duplicates, shadows new ones |
+| Playbook | Local SQLite store of learned workflows, shared by all sessions |
 
 **First time a task is seen:** the agent works normally. Every call goes through the gateway, which trims results to the fields that matter and records the run.
 
@@ -79,20 +82,21 @@ flowchart LR
 ```mermaid
 sequenceDiagram
   participant U as User
-  participant H as Hook / host
+  participant H as Hook
   participant R as Router
   participant X as Saved plan
   participant M as Model
-  U->>H: "Where is order #W456?"
+  U->>H: Where is order W456?
   H->>R: request text
-  R->>R: find candidate, fill inputs, safety gate
+  R->>R: find match, fill inputs, safety gate
   alt verified match
-    R->>X: run with order_id = #W456
-    X-->>H: order_id=#W456; status=delivered; tracking=…
-    H->>M: request + compact receipt (no tool calls needed)
-    M-->>U: answer
+    R->>X: run with order W456
+    X-->>H: status delivered, tracking 1Z99
+    H->>M: request plus compact receipt
+    M-->>U: answer, no tool calls
   else no safe match
-    H->>M: ordinary turn (tools trimmed, workflows offered)
+    H->>M: normal turn with trimmed tools
+    M-->>U: answer
   end
 ```
 
