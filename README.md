@@ -12,6 +12,7 @@ Workflow Replay watches the tool calls your agent makes, learns the read-only wo
 ![MCP](https://img.shields.io/badge/MCP-gateway-0A7AFF?style=for-the-badge)
 ![Tests](https://img.shields.io/badge/tests-46%20passing-2EA44F?style=for-the-badge)
 ![Savings](https://img.shields.io/badge/tokens-%E2%88%9238%25-F2C94C?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
 [What it does](#what-it-does) · [How it works](#how-it-works) · [Results](#results) · [Quick start](#quick-start) · [Usage](#usage) · [Safety](#safety) · [Docs](#documentation)
 
@@ -33,6 +34,7 @@ Workflow Replay watches the tool calls your agent makes, learns the read-only wo
 - [Project layout](#project-layout)
 - [Limitations](#limitations)
 - [Documentation](#documentation)
+- [License](#license)
 
 ## What it does
 
@@ -321,3 +323,7 @@ src/, eval/ (top level) v0.1: hand-written workflows, prompt hook, remote connec
 ## Acknowledgements
 
 Benchmark data comes from [τ²-bench](https://github.com/sierra-research/tau2-bench) (Sierra Research, MIT), downloaded at a pinned commit and not redistributed here. Earlier evaluation prompts adapt items from [BFCL](https://github.com/ShishirPatil/gorilla) and IBM's [BFCL-FC-robustness](https://huggingface.co/datasets/ibm-research/BFCL-FC-robustness).
+
+## License
+
+[MIT](LICENSE)

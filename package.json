@@ -20,7 +20,8 @@
     "SECURITY.md",
     "install.mjs",
     "mcp.mjs",
-    "personal.mjs"
+    "personal.mjs",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=24"
@@ -62,5 +63,6 @@
     "workflow",
     "llm",
     "tool-use"
-  ]
+  ],
+  "license": "MIT"
 }
