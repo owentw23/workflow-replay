@@ -10,7 +10,7 @@ Reflo learns recurring read-only workflows from your agent’s tool calls. When 
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-hooks%20%2B%20MCP-D97757?style=for-the-badge)
 ![Codex](https://img.shields.io/badge/Codex-hooks%20%2B%20MCP-412991?style=for-the-badge)
 ![MCP](https://img.shields.io/badge/MCP-gateway-0A7AFF?style=for-the-badge)
-![Tests](https://img.shields.io/badge/tests-46%20passing-2EA44F?style=for-the-badge)
+![Tests](https://img.shields.io/badge/tests-51%20passing-2EA44F?style=for-the-badge)
 ![Savings](https://img.shields.io/badge/tokens-%E2%88%9238%25-F2C94C?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
@@ -270,8 +270,10 @@ await harness.learn(); // mine, verify, consolidate; run periodically
 
 ## Safety
 
-- **Reads replay; writes never do.** A learned workflow that ends in a write prepares the exact call. In Claude Code, `commit_workflow_action` checks your permission settings for that write tool. A deny rule refuses it, an allow rule runs it once, and anything else **asks you first**. Every proposal runs at most once, expires after 10 minutes, and is tied to the session that prepared it.
-- **Verified before use.** Each workflow is replayed against past runs, then must agree with the live agent in shadow mode. A single disagreement retires it.
+- **Reads replay; writes never do.** A learned workflow that ends in a write prepares the exact call. In Claude Code, `commit_workflow_action` checks your permission settings for that write tool. A deny rule refuses it, an allow rule runs it once, and anything else **asks you first**. Every proposal runs at most once, expires after 10 minutes, and is tied to the user who requested it.
+- **Each user's own access.** Every call, including replays, prefetches and verification runs, carries the requesting user (the principal) to your `upstream`, which uses that user's credentials. An optional `authorize(principal, op, args)` must allow each call. Workflows store structure, never data, so a shared playbook can't leak one user's results to another.
+- **Data stays data.** Results passed to the model are sanitised: invisible characters removed, long text cut, and anything that reads like instructions to a model ("ignore previous instructions…") withheld and flagged to the user. They are wrapped in `<data>` markers.
+- **Verified before use, watched after.** Each workflow is replayed against past runs, then must agree with the live agent in shadow mode; a single disagreement retires it. Once live, every 20th hit runs the ordinary agent as a canary, and a workflow goes back to shadow mode if the canary disagrees, a returned field changes type, or most recent results look unusual.
 - **Declines when unsure.** Misses, ambiguities and near-misses fall back to the ordinary agent. Mid-turn replays pass the same gate.
 - **Local data.** Profiles, playbooks and recorded runs stay in `~/.workflow-replay` (or the folder you set in `WORKFLOW_REPLAY_HOME`). Recorded runs contain fetched data, are deleted after 30 days, and should stay out of git. Workflow descriptions never include input values.
 - **Your config is respected.** The installer backs up every file it touches and leaves other hooks and MCP servers untouched.

@@ -46,7 +46,8 @@ if (options.learned) copyFileSync(options.learned, storePath);
 const complete = createModel();
 const store = openStore(storePath.pathname.replace(/^\/([A-Za-z]:)/, '$1'));
 const harness = createHarness({ registry, upstream: service, project, store, extract: extractor(complete),
-  policy: { autoApprove: true, widenOnApprove: true, shadowTarget: 3 } });
+  // Canary checks are off in the bench so every arm is measured on the same requests.
+  policy: { autoApprove: true, widenOnApprove: true, shadowTarget: 3, canaryEvery: 0 } });
 const log = line => console.log(`[${new Date().toISOString().slice(11, 19)}] ${line}`);
 writeFileSync(new URL('run.json', runDir), JSON.stringify({ model: MODEL, temperature: TEMPERATURE, maxTokens: MAX_TOKENS,
   seed, repeats, workers, arms: ARMS, testItems: testItems.map(item => item.id), started: new Date().toISOString(),

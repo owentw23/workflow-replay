@@ -547,7 +547,7 @@ export async function replayCheck(plan, episodes, registry, call) {
     try {
       // Writes never run during verification: the proposed call must equal the recorded one, and every answer
       // field that does not depend on the write must match.
-      const { output, proposal } = await executePlan(plan, inputs, registry, call);
+      const { output, proposal } = await executePlan(plan, inputs, registry, (op, args) => call(op, args, episode));
       if (proposal) {
         const recorded = cleanCalls(episode.calls).at(-1);
         const writeStep = proposal.stepId;

@@ -9,8 +9,10 @@ export const STATES = ['candidate', 'verified', 'shadow', 'live', 'retired'];
 export function openStore(path = ':memory:') {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
+  // WAL lets hooks, the MCP server and background learning read and write the same file concurrently.
+  if (path !== ':memory:') db.exec('PRAGMA journal_mode = WAL');
   db.exec(`
-    PRAGMA busy_timeout = 3000;
+    PRAGMA busy_timeout = 5000;
     CREATE TABLE IF NOT EXISTS episodes (
       id INTEGER PRIMARY KEY, request TEXT NOT NULL, answer TEXT, success INTEGER NOT NULL DEFAULT 0,
       scope TEXT NOT NULL DEFAULT 'default', created INTEGER NOT NULL, mined INTEGER NOT NULL DEFAULT 0
@@ -30,16 +32,17 @@ export function openStore(path = ':memory:') {
       note TEXT, at INTEGER NOT NULL, seq INTEGER PRIMARY KEY AUTOINCREMENT
     );
   `);
+  try { db.exec('ALTER TABLE episodes ADD COLUMN principal TEXT'); } catch { /* already present */ }
   return db;
 }
 
-export function recordEpisode(db, { request, answer, success, calls, scope = 'default' }) {
+export function recordEpisode(db, { request, answer, success, calls, scope = 'default', principal = null }) {
   requireThat(typeof request === 'string' && request.length <= 4096, 'Invalid request');
   db.exec('BEGIN IMMEDIATE');
   try {
     const { lastInsertRowid: id } = db.prepare(
-      'INSERT INTO episodes (request, answer, success, scope, created) VALUES (?, ?, ?, ?, ?)',
-    ).run(request, answer === undefined ? null : canonical(answer), success ? 1 : 0, scope, Date.now());
+      'INSERT INTO episodes (request, answer, success, scope, created, principal) VALUES (?, ?, ?, ?, ?, ?)',
+    ).run(request, answer === undefined ? null : canonical(answer), success ? 1 : 0, scope, Date.now(), principal);
     const insert = db.prepare('INSERT INTO calls VALUES (?, ?, ?, ?, ?, ?)');
     calls.forEach((call, seq) => insert.run(id, seq, call.op, canonical(call.args),
       call.result === undefined ? null : canonical(call.result), call.ok ? 1 : 0));
@@ -57,7 +60,7 @@ export function loadEpisodes(db, { scope = 'default', ids, onlyUnmined = false }
     : db.prepare(`SELECT * FROM episodes WHERE scope = ? AND success = 1 ${onlyUnmined ? 'AND mined = 0' : ''} ORDER BY id`).all(scope);
   const calls = db.prepare('SELECT * FROM calls WHERE episode = ? ORDER BY seq');
   return rows.map(row => ({
-    id: row.id, request: row.request, success: !!row.success,
+    id: row.id, request: row.request, success: !!row.success, principal: row.principal ?? null,
     answer: row.answer === null ? null : JSON.parse(row.answer),
     calls: calls.all(row.id).map(call => ({ op: call.op, args: JSON.parse(call.args),
       result: call.result === null ? null : JSON.parse(call.result), ok: !!call.ok })),

@@ -91,10 +91,10 @@ test('write workflows only prepare proposals; the ledger runs an approved propos
 
   const blocked = await harness.gateway({ request: 'x' }).call('cancel_order', { order_id: 'o5' });
   assert.ok(blocked.error, 'gateway refuses writes without the host approval path');
-  const handled = await harness.handle('Please cancel order o5', { session: 'w1' });
+  const handled = await harness.handle('Please cancel order o5', { session: 'w1', principal: 'w1' });
   assert.equal(handled.mode, 'approve');
   assert.deepEqual(handled.proposal.args, { order_id: 'o5' });
-  const tool = await harness.gateway({ request: 'Please cancel order o5', session: 'w1' }).runWorkflow(route.id, { order_id: 'o5' });
+  const tool = await harness.gateway({ request: 'Please cancel order o5', session: 'w1', principal: 'w1' }).runWorkflow(route.id, { order_id: 'o5' });
   assert.equal(tool.status, 'needs_approval');
   assert.equal(svc.cancelled.length, 0, 'nothing ran before approval');
 

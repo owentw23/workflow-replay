@@ -3,7 +3,7 @@
 //   upstream  async (op, args) => raw result               the real API / MCP / CLI call
 //   project   (op, raw) => trimmed result                  optional
 //   extract   async ({system, user}) => {value, usage}     optional small-model extractor for the router
-import { homedir } from 'node:os';
+import { homedir, userInfo } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { requireThat } from '../util.mjs';
@@ -20,9 +20,16 @@ export async function loadHarness(name, policy = {}) {
   const module = await import(pathToFileURL(join(v2Home, 'profiles', `${name}.mjs`)).href);
   requireThat(module.registry instanceof Map && typeof module.upstream === 'function', 'Profile must export registry and upstream');
   return createHarness({
-    registry: module.registry, upstream: module.upstream, project: module.project, extract: module.extract,
+    registry: module.registry, upstream: module.upstream, project: module.project, extract: module.extract, embed: module.embed,
+    // Who the calls run for. Local hosts default to the OS user; a profile can export principal() and
+    // authorize(principal, op, args) to map users to their own credentials and permissions.
+    authorize: module.authorize, defaultPrincipal: (await module.principal?.()) ?? safeUser(),
     store: openStore(join(v2Home, 'stores', `${name}.sqlite`)), carry: createCarry({ directory: join(v2Home, 'carry', name) }),
     // Host defaults: hands-free learning for read-only workflows. A profile can override any of these.
-    policy: { autoApprove: true, shadowTarget: 5, learnEvery: 5, retentionDays: 30, ...module.policy, ...policy },
+    policy: { autoApprove: true, shadowTarget: 5, learnEvery: 5, retentionDays: 30, ...module.policy, ...policy, profileName: name },
   });
+}
+
+function safeUser() {
+  try { return userInfo().username || 'local'; } catch { return 'local'; }
 }

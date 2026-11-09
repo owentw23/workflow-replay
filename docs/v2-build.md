@@ -131,7 +131,7 @@ Attention rules are generated per route: a field that was never null, a low-card
 ### 11. Hands-free learning in hosts
 
 - The prompt hook remembers a shadow-mode match per session. The `Stop` hook compares the workflow's answer with Claude's reply: every fact the workflow returns must appear in the reply (numbers match with or without thousands separators).
-- Every `learnEvery` recorded turns (default 5), the `Stop` hook mines, verifies, consolidates, updates prefix statistics and purges traces older than `retentionDays` (default 30). The newest turn waits one round, so a correction in the next prompt can still mark it failed.
+- Every `learnEvery` recorded turns (default 5), the `Stop` hook starts a detached background process (`claude-hook.mjs learn`) that mines, verifies, consolidates, updates prefix statistics and purges traces older than `retentionDays` (default 30). The hook itself returns immediately. A lock row in the store allows one learning run at a time across hooks, the MCP server and the CLI, and expires after 10 minutes so a crashed run can't block learning. The store uses SQLite WAL mode with a 5-second busy timeout. The newest turn waits one round, so a correction in the next prompt can still mark it failed.
 - Host defaults (`src/v2/hosts/profile.mjs`): `autoApprove: true` for read-only workflows, `shadowTarget: 5`. A profile can override them with `export const policy = { … }`.
 - `SessionEnd` → `claude-hook.mjs end` deletes the session's carried results and pending files.
 
@@ -202,6 +202,28 @@ For your own service:
 4. Add the hooks: `claude-hook.mjs prompt --profile NAME` on `UserPromptSubmit`, `claude-hook.mjs stop --profile NAME` on `Stop`, and `claude-hook.mjs end --profile NAME` on `SessionEnd`.
 
 Learning, shadow checks and promotion of read-only workflows then run by themselves. Approve write workflows with `cli.mjs NAME approve ROUTE`.
+
+### 14. Hardening
+
+**Principals and authorization.**
+- Every upstream call, including agent calls, replays, prefetches, speculation, shadow and verification runs, and writes, carries a principal: `upstream(op, args, { principal })`.
+- A profile can export `principal()`, used as the default for local hosts (otherwise the OS user), and `authorize(principal, op, args)`. When `authorize` is present a principal is required, and every call must be allowed.
+- Recorded episodes store their principal, and verification replays run as that principal. Write proposals are tied to the principal that requested them.
+- Plans contain structure only, so sharing a playbook never shares data.
+
+**Sanitising.**
+- Receipts, prefetched data, carried results and compiled-tool outputs pass through `sanitizeForModel`:
+  - control and invisible characters are removed, whitespace collapsed, and strings cut at 300 characters;
+  - text that matches instruction patterns ("ignore previous instructions", "system prompt", "you are now", chat-template tokens, "call the … tool", "do not tell the user") is replaced with `[withheld: …]`, and the model is told to tell the user.
+- Receipts and prefetches are wrapped in `<data>…</data>` markers.
+- Ordinary tool results are not altered.
+
+**Drift detection.** A live workflow goes back to shadow mode (stops serving and must re-qualify) when:
+- a returned field changes type compared with what was learned;
+- at least `driftRate` (50%) of the last `driftWindow` (20) replays trip an unusual-result rule;
+- a canary disagrees. Every `canaryEvery`-th (20th) live hit runs the ordinary agent instead and is compared, as in shadow mode.
+
+Demotions are logged in `stats.demotions`.
 
 ## Remaining gaps
 

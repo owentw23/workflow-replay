@@ -9,6 +9,7 @@
 //   end (SessionEnd): delete this session's carry and pending files.
 // Usage in hook config: node /abs/path/src/v2/hosts/claude-hook.mjs <prompt|stop|end> --profile NAME
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { canonical } from '../util.mjs';
@@ -118,7 +119,8 @@ export async function onStop(harness, input) {
     const pendingPath = sessionFile('pending-shadow', session);
     const pending = readJson(pendingPath);
     if (pending && pending.request === episode.request && episode.answer) {
-      outcome.shadow = await harness.shadow(pending.route, pending.inputs, episode.answer);
+      outcome.shadow = await harness.shadow(pending.route, pending.inputs, episode.answer,
+        { principal: pending.principal ?? harness.defaultPrincipal, canary: !!pending.canary });
     }
     if (pending) rmSync(pendingPath, { force: true });
   }
@@ -135,12 +137,26 @@ export async function onStop(harness, input) {
   const newest = harness.store.prepare('SELECT MAX(id) AS id FROM episodes').get().id ?? 0;
   const ready = harness.store.prepare('SELECT COUNT(*) AS n FROM episodes WHERE id > ? AND id < ?').get(last, newest).n;
   if (ready >= learnEvery) {
-    const log = await harness.learn();
-    meta(harness.store, 'lastLearnedEpisode', newest - 1);
-    purgeTraces(harness.store, retentionDays * 24 * 60 * 60 * 1000);
-    outcome.learned = { candidates: log.candidates.length, merges: log.consolidated.filter(c => c.merged).length };
+    if (harness.settings.learnInline || !harness.settings.profileName) {
+      outcome.learned = await learnRound(harness, newest - 1, retentionDays);
+    } else {
+      // Learning runs in a detached background process so the Stop hook returns at once; the store lock keeps
+      // concurrent runs from overlapping.
+      const child = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', import.meta.filename, 'learn',
+        '--profile', harness.settings.profileName, '--upto', String(newest - 1)], { detached: true, stdio: 'ignore', windowsHide: true });
+      child.unref();
+      outcome.learned = { background: true };
+    }
   }
   return outcome;
+}
+
+export async function learnRound(harness, upto, retentionDays = harness.settings.retentionDays ?? 30) {
+  const log = await harness.learn();
+  if (log.skipped) return { skipped: log.skipped };
+  meta(harness.store, 'lastLearnedEpisode', upto);
+  purgeTraces(harness.store, retentionDays * 24 * 60 * 60 * 1000);
+  return { candidates: log.candidates.length, merges: log.consolidated.filter(c => c.merged).length };
 }
 
 export function onEnd(harness, input) {
@@ -151,17 +167,19 @@ export function onEnd(harness, input) {
 }
 
 if (process.argv[1]?.endsWith('claude-hook.mjs')) {
-  const { positionals, values } = parseArgs({ allowPositionals: true, options: { profile: { type: 'string' }, mode: { type: 'string' } } });
+  const { positionals, values } = parseArgs({ allowPositionals: true, options: { profile: { type: 'string' }, mode: { type: 'string' }, upto: { type: 'string' } } });
   if (values.mode === 'carry') process.env.WORKFLOW_REPLAY_MODE = 'carry';
   try {
     // Show-and-carry must be enabled explicitly; the default is inject (the model writes every answer).
     const harness = await loadHarness(values.profile, process.env.WORKFLOW_REPLAY_MODE === 'carry' ? { answerMode: 'carry' } : {});
-    const input = await readInput();
+    const input = positionals[0] === 'learn' ? {} : await readInput();
     if (positionals[0] === 'prompt') {
       const output = await onPrompt(harness, input);
       if (output) process.stdout.write(canonical(output) + '\n');
     } else if (positionals[0] === 'stop') {
       await onStop(harness, input);
+    } else if (positionals[0] === 'learn') {
+      await learnRound(harness, Number(values.upto ?? 0));
     } else if (positionals[0] === 'end') {
       onEnd(harness, input);
     }

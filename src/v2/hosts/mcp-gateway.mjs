@@ -58,7 +58,7 @@ export function makeGatewayServer(harness) {
       [name, optional.has(name) ? zodFor(type).optional() : zodFor(type)]));
     // Write tools are marked destructive, so Claude Code applies its own permission prompt to every direct call.
     server.registerTool(op, { description: tool.description, inputSchema, annotations: write ? destructive : readOnly }, async input => {
-      const gate = harness.gateway({ request: '', record: false, speculate: false, allowWrites: write });
+      const gate = harness.gateway({ request: '', record: false, speculate: false, allowWrites: write, principal: harness.defaultPrincipal });
       return reply(await gate.call(op, input));
     });
   }
@@ -75,7 +75,7 @@ export function makeGatewayServer(harness) {
         inputs: Object.fromEntries(Object.entries(item.plan.inputs).map(([name, spec]) => [name, spec.type])),
         returns: Object.keys(item.plan.output) })));
     }
-    return reply(await harness.gateway({ record: false, session: 'claude-code' }).runWorkflow(route, inputs ?? {}));
+    return reply(await harness.gateway({ record: false, session: 'claude-code', principal: harness.defaultPrincipal }).runWorkflow(route, inputs ?? {}));
   });
   server.registerTool('commit_workflow_action', {
     description: 'Execute a write that run_workflow prepared. Checks the user\'s Claude Code permissions for the underlying tool '

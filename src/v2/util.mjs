@@ -152,3 +152,41 @@ export function vectorCosine(a, b) {
   }
   return left && right ? dot / Math.sqrt(left * right) : 0;
 }
+
+// Data that reaches the model as context (receipts, prefetched results, carried results) is sanitised: control
+// and invisible characters removed, whitespace collapsed, long strings cut, and text that reads like instructions
+// to a model withheld. Returns the cleaned value and the paths that were withheld.
+const INSTRUCTION_LIKE = [
+  /\bignore\s+(all\s+|any\s+|the\s+)?(previous|prior|above|earlier)\s+(instructions?|messages?|prompts?)/i,
+  /\bdisregard\s+(all\s+|the\s+)?(previous|prior|above|earlier)\b/i,
+  /\b(system|developer)\s+(prompt|message|instructions?)\b/i,
+  /\byou\s+are\s+now\b/i,
+  /\bnew\s+instructions?\b/i,
+  /<\|?\s*(system|im_start|im_end|endoftext)/i,
+  /\[\/?(INST|SYS)\]/i,
+  /\b(call|invoke|use|run)\s+the\s+[\w-]+\s+tool\b/i,
+  /\bdo\s+not\s+tell\s+the\s+user\b/i,
+];
+export const looksLikeInstructions = text => INSTRUCTION_LIKE.some(pattern => pattern.test(text));
+const INVISIBLE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f​-‏‪-‮⁦-⁩]/g;
+
+export function sanitizeForModel(value, { maxString = 300 } = {}) {
+  const flagged = [];
+  const clean = (node, at, depth) => {
+    if (depth > 8) return null;
+    if (typeof node === 'string') {
+      const text = node.replace(INVISIBLE, '').replace(/\s+/g, ' ').trim();
+      if (looksLikeInstructions(text)) {
+        flagged.push(at || 'value');
+        return '[withheld: text that looked like instructions]';
+      }
+      return text.length > maxString ? text.slice(0, maxString) + '…' : text;
+    }
+    if (Array.isArray(node)) return node.slice(0, 100).map((item, i) => clean(item, at + '[' + i + ']', depth + 1));
+    if (node && typeof node === 'object') {
+      return Object.fromEntries(Object.entries(node).slice(0, 100).map(([key, item]) => [key, clean(item, at ? at + '.' + key : key, depth + 1)]));
+    }
+    return node;
+  };
+  return { value: clean(value, '', 0), flagged };
+}
